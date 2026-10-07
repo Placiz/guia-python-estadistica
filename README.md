@@ -1,15 +1,15 @@
-# Python para estadística descriptiva
+# Aprende Python desde cero
 
-Guía de estudio interactiva para aprender Python aplicado a la estadística descriptiva, desde cero hasta un nivel avanzado, con pandas, NumPy, SciPy, matplotlib y seaborn.
+Guía de estudio interactiva para aprender a programar en Python, desde cero hasta un nivel avanzado. Los ejemplos se pueden **editar y ejecutar en el navegador**, sin instalar nada.
 
-**👉 Ver la guía:** https://placiz.github.io/guia-python-estadistica/
+**👉 Abrir la guía:** https://placiz.github.io/guia-python/
 
 ## Contenido
 
-- **Básico:** Google Colab y Jupyter, variables, listas, tipos de datos y faltantes, NumPy, DataFrames de pandas e importación de datos.
-- **Intermedio:** tendencia central, dispersión, posición y forma, valores atípicos, tablas de frecuencia, gráficos con matplotlib y análisis por grupos.
-- **Avanzado:** encadenamiento de métodos, seaborn, correlación, funciones propias, informes reproducibles y un proyecto final con el dataset `tips`.
+- **Básico:** primer programa y errores, variables y tipos, operadores, texto, entrada y salida, condicionales y bucles.
+- **Intermedio:** listas, tuplas y conjuntos, diccionarios, funciones, errores y excepciones, archivos, módulos y librerías.
+- **Avanzado:** clases y objetos, herramientas pythónicas, generadores y decoradores, buenas prácticas y un proyecto final (gestor de tareas).
 
-Cada lección incluye código para copiar con su resultado real (obtenido al ejecutar los ejemplos), ejercicios con pistas y soluciones, y preguntas de autoevaluación. También hay un laboratorio donde puedes calcular estadísticas con tus propios datos.
+Cada lección incluye ejemplos ejecutables con su resultado esperado, ejercicios con pistas y soluciones, y preguntas de autoevaluación. También hay una consola libre para practicar.
 
-¿Prefieres R? Mira la [guía equivalente en R](https://placiz.github.io/guia-r-estadistica/).
+Los ejemplos se ejecutan con [Pyodide](https://pyodide.org) (Python 3.14 en el navegador).
