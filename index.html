@@ -736,7 +736,7 @@ print("¡Despegue!")</code></pre><div class="out" hidden><pre>5
 2
 1
 ¡Despegue!</pre></div></div>
-  <div class="callout warn"><b class="t">Bucle infinito</b>Si la condición de un <code>while</code> nunca se vuelve falsa, el bucle no termina nunca. Aquí, <code>cuenta -= 1</code> evita eso. Si te pasa en esta página, usa el botón <b>Detener</b>.</div>
+  <div class="callout warn"><b class="t">Bucle infinito</b>Si la condición de un <code>while</code> nunca se vuelve falsa, el bucle no termina nunca. Aquí, <code>cuenta -= 1</code> evita eso. Si te pasa en esta página, no te preocupes: el programa se detiene solo después de 10 segundos.</div>
   <h3>break y continue</h3>
   <div class="code" data-run="1"><pre><code>for n in range(1, 11):
     if n % 2 == 0:
@@ -1951,7 +1951,7 @@ for i in range(3):
 
 <script>
 (function(){
-  var HELPER = "\nimport linecache, sys, traceback\ndef __guia_run(code, entradas, ns):\n    cola = list(entradas)\n    def _input(prompt=\"\"):\n        if not cola:\n            raise EOFError(\"faltan valores de entrada: agrega una l\u00ednea en el cuadro Entradas\")\n        valor = cola.pop(0)\n        print(f\"{prompt}{valor}\")\n        return valor\n    ns[\"input\"] = _input\n    ns.setdefault(\"__name__\", \"__main__\")\n    linecache.cache[\"main.py\"] = (len(code), None, code.splitlines(True), \"main.py\")\n    try:\n        exec(compile(code, \"main.py\", \"exec\"), ns)\n    except BaseException as e:\n        tb = e.__traceback__\n        while tb is not None and tb.tb_frame.f_code.co_filename != \"main.py\":\n            tb = tb.tb_next\n        print(\"\".join(traceback.format_exception(type(e), e, tb)).rstrip())\n    finally:\n        sys.stdout.flush()\n";
+  var HELPER = "\nimport linecache, sys, time, traceback\ndef __guia_run(code, entradas, ns, limite=None):\n    cola = list(entradas)\n    def _input(prompt=\"\"):\n        if not cola:\n            raise EOFError(\"faltan valores de entrada: agrega una l\u00ednea en el cuadro Entradas\")\n        valor = cola.pop(0)\n        print(f\"{prompt}{valor}\")\n        return valor\n    ns[\"input\"] = _input\n    ns.setdefault(\"__name__\", \"__main__\")\n    linecache.cache[\"main.py\"] = (len(code), None, code.splitlines(True), \"main.py\")\n    if limite:\n        fin = time.monotonic() + limite\n        def _vigilar(frame, evento, arg):\n            if time.monotonic() > fin:\n                raise TimeoutError(f\"el programa tard\u00f3 m\u00e1s de {limite} segundos (\u00bfun bucle infinito?)\")\n            return _vigilar\n        sys.settrace(_vigilar)\n    try:\n        exec(compile(code, \"main.py\", \"exec\"), ns)\n    except BaseException as e:\n        if limite and isinstance(e, TimeoutError) and str(e).startswith(\"el programa tard\u00f3\"):\n            print(f\"Detenido: {e}\")\n            return\n        tb = e.__traceback__\n        while tb is not None and tb.tb_frame.f_code.co_filename != \"main.py\":\n            tb = tb.tb_next\n        print(\"\".join(traceback.format_exception(type(e), e, tb)).rstrip())\n    finally:\n        sys.settrace(None)\n        sys.stdout.flush()\n";
   var PYO = "https://cdn.jsdelivr.net/npm/pyodide@314.0.7/";
 
   /* ---------- Resaltado de sintaxis Python ---------- */
@@ -1970,48 +1970,44 @@ for i in range(3):
     return out + esc(text.slice(last));
   }
 
-  /* ---------- Python en el navegador (Pyodide en un worker) ---------- */
-  var worker = null, ready = null, pending = {}, seq = 0, failed = false;
-  function workerSrc(){
-    return 'importScripts(' + JSON.stringify(PYO + "pyodide.js") + ');\n' +
-      'var py, buf = [];\n' +
-      'var ready = loadPyodide({indexURL: ' + JSON.stringify(PYO) + '}).then(function(p){ py = p;\n' +
-      '  py.setStdout({batched: function(s){ buf.push(s); }});\n' +
-      '  py.setStderr({batched: function(s){ buf.push(s); }});\n' +
-      '  py.runPython(' + JSON.stringify(HELPER) + ' + "\\n__guia_ns = {\\"__name__\\": \\"__main__\\"}");\n' +
-      '  postMessage({type: "ready"}); });\n' +
-      'ready.catch(function(e){ postMessage({type: "fail", msg: String(e)}); });\n' +
-      'onmessage = function(e){ ready.then(function(){ buf = [];\n' +
-      '  try { py.globals.get("__guia_run")(e.data.code, py.toPy(e.data.inputs), py.globals.get("__guia_ns")); }\n' +
-      '  catch(err){ buf.push(String(err)); }\n' +
-      '  postMessage({type: "out", id: e.data.id, out: buf.join("\\n")}); }); };';
-  }
-  function startWorker(){
+  /* ---------- Python en el navegador (Pyodide) ---------- */
+  var py = null, ready = null, buf = [], seq = 0, LIMITE = 10;
+  function startPy(){
     if (ready) return ready;
     ready = new Promise(function(resolve, reject){
-      try {
-        var url = URL.createObjectURL(new Blob([workerSrc()], {type: "text/javascript"}));
-        worker = new Worker(url);
-      } catch(e){ reject(e); return; }
-      worker.onmessage = function(e){
-        var d = e.data;
-        if (d.type === "ready") resolve();
-        else if (d.type === "fail") reject(new Error(d.msg));
-        else if (d.type === "out" && pending[d.id]){ pending[d.id](d.out); delete pending[d.id]; }
-      };
-      worker.onerror = function(e){ reject(new Error(e.message || "worker")); };
+      if (window.loadPyodide) return resolve();
+      var s = document.createElement("script");
+      s.src = PYO + "pyodide.js";
+      s.onload = resolve;
+      s.onerror = function(){ reject(new Error("No se pudo descargar Pyodide")); };
+      document.head.appendChild(s);
+    }).then(function(){
+      return window.loadPyodide({indexURL: PYO});
+    }).then(function(p){
+      py = p;
+      py.setStdout({batched: function(s){ buf.push(s); }});
+      py.setStderr({batched: function(s){ buf.push(s); }});
+      py.runPython(HELPER + '\n__guia_ns = {"__name__": "__main__"}');
     });
-    ready.catch(function(){ failed = true; });
+    ready.catch(function(){ ready = null; });
     return ready;
   }
-  function stopWorker(){
-    if (worker) worker.terminate();
-    worker = null; ready = null;
-    Object.keys(pending).forEach(function(k){ pending[k](null); delete pending[k]; });
+  function resetPy(){
+    if (py) py.runPython('__guia_ns = {"__name__": "__main__"}');
   }
   function runPy(code, inputs){
-    return startWorker().then(function(){
-      return new Promise(function(resolve){ var id = ++seq; pending[id] = resolve; worker.postMessage({id: id, code: code, inputs: inputs}); });
+    return startPy().then(function(){
+      // pequeña pausa para que el navegador muestre "Ejecutando…" antes de ocupar la página
+      return new Promise(function(resolve){
+        setTimeout(function(){
+          buf = [];
+          var ins = py.toPy(inputs);
+          try { py.globals.get("__guia_run")(code, ins, py.globals.get("__guia_ns"), LIMITE); }
+          catch(err){ buf.push(String(err)); }
+          finally { ins.destroy(); }
+          resolve(buf.join("\n"));
+        }, 30);
+      });
     });
   }
 
@@ -2075,24 +2071,16 @@ for i in range(3):
         }
         var p = runOut.querySelector("pre");
         rb.disabled = true; p.hidden = true; status.hidden = false;
-        status.textContent = ready ? "Ejecutando…" : "Cargando Python en tu navegador (solo la primera vez, unos 12 MB)…";
-        var t = setTimeout(function(){
-          status.innerHTML = "Esto está tardando. ¿Un bucle infinito?";
-          var stop = document.createElement("button"); stop.type = "button"; stop.textContent = "Detener";
-          stop.addEventListener("click", function(){ stopWorker(); });
-          status.appendChild(stop);
-        }, ready ? 6000 : 45000);
+        status.textContent = py ? "Ejecutando…" : "Cargando Python en tu navegador (solo la primera vez, unos 12 MB)…";
         var inputs = inBox ? inBox.querySelector("textarea").value.split("\n").filter(function(l, i, a){ return !(i === a.length - 1 && l === ""); }) : [];
         runPy(getCode(), inputs).then(function(res){
-          clearTimeout(t); rb.disabled = false;
-          if (res === null){ status.textContent = "Detenido. Python se reinició: vuelve a ejecutar los ejemplos que necesites."; return; }
+          rb.disabled = false;
           status.hidden = true; p.hidden = false;
           p.textContent = res === "" ? "(sin salida)" : res;
-          p.className = /Traceback \(most recent call last\)|^\s*File "main\.py"/m.test(res) ? "err" : "";
+          p.className = /Traceback \(most recent call last\)|^\s*File "main\.py"|^Detenido: /m.test(res) ? "err" : "";
         }, function(){
-          clearTimeout(t); rb.disabled = false;
+          rb.disabled = false;
           status.innerHTML = 'No se pudo cargar Python aquí. Abre la guía en <a href="https://placiz.github.io/guia-python/" target="_blank" rel="noopener">placiz.github.io/guia-python</a> o copia el código en <a href="https://colab.research.google.com" target="_blank" rel="noopener">Google Colab</a>.';
-          stopWorker();
         });
       }
       rb.addEventListener("click", doRun);
@@ -2134,7 +2122,7 @@ for i in range(3):
     this.textContent = allShown ? "Ocultar todos los resultados" : "Mostrar todos los resultados";
   });
   document.getElementById("resetPy").addEventListener("click", function(){
-    stopWorker(); var b = this; b.textContent = "Python reiniciado";
+    resetPy(); var b = this; b.textContent = "Variables borradas";
     setTimeout(function(){ b.textContent = "Reiniciar Python"; }, 1500);
   });
 
